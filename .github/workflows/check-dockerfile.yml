@@ -1,0 +1,39 @@
+name: Check Dockerfile After Merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  dockerfile-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write  # Needed to create an issue
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get list of changed files in the last commit
+        id: diff
+        run: |
+          git fetch origin main --depth=2
+          echo "files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | grep -i dockerfile || true)" >> $GITHUB_OUTPUT
+
+      - name: Check if Dockerfile exists anywhere in repo
+        id: global_check
+        run: |
+          if find . -type f -iname 'Dockerfile' | grep -q .; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Issue if no Dockerfile was found
+        if: steps.diff.outputs.files == '' && steps.global_check.outputs.found == 'false'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: Missing Dockerfile after merge to main
+          content-file: .github/ISSUE_TEMPLATE/missing-dockerfile.md
+          labels: missing-dockerfile
