@@ -1,0 +1,94 @@
+name: Backend Code Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-language:
+    runs-on: ubuntu-latest
+    outputs:
+      is_node: ${{ steps.check_node.outputs.found }}
+      is_java: ${{ steps.check_java.outputs.found }}
+      is_python: ${{ steps.check_python.outputs.found }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Node.js (package.json)
+        id: check_node
+        run: echo "found=$(if [ -f package.json ]; then echo true; else echo false; fi)" >> $GITHUB_OUTPUT
+
+      - name: Check for Java (pom.xml or build.gradle)
+        id: check_java
+        run: echo "found=$(if [ -f pom.xml ] || [ -f build.gradle ]; then echo true; else echo false; fi)" >> $GITHUB_OUTPUT
+
+      - name: Check for Python (requirements.txt or pyproject.toml)
+        id: check_python
+        run: echo "found=$(if [ -f requirements.txt ] || [ -f pyproject.toml ]; then echo true; else echo false; fi)" >> $GITHUB_OUTPUT
+
+  node-check:
+    needs: detect-language
+    if: needs.detect-language.outputs.is_node == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install
+
+      - run: npm run lint --if-present
+
+      - run: npm test --if-present
+
+  java-check:
+    needs: detect-language
+    if: needs.detect-language.outputs.is_java == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build with Maven
+        if: ${{ hashFiles('pom.xml') != '' }}
+        run: mvn clean verify
+
+      - name: Build with Gradle
+        if: ${{ hashFiles('build.gradle') != '' }}
+        run: ./gradlew build
+
+  python-check:
+    needs: detect-language
+    if: needs.detect-language.outputs.is_python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install .; fi
+
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          flake8 . --exclude=.git,__pycache__
+
+      - name: Run tests
+        run: |
+          if [ -d tests ]; then pytest; fi
