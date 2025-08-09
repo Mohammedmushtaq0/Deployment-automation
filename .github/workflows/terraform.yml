@@ -2,13 +2,13 @@ name: Terraform Infrastructure
 
 on:
   push:
-    paths:
-      - 'terraform/**'
     branches:
       - main
+    paths:
+      - '*.tf'
   pull_request:
     paths:
-      - 'terraform/**'
+      - '*.tf'
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -17,10 +17,6 @@ jobs:
   terraform:
     name: Terraform Apply/Plan
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: terraform  # so it runs inside the terraform folder
 
     steps:
       # Step 1: Checkout code
@@ -48,7 +44,6 @@ jobs:
         run: terraform fmt -check
 
       # Step 6: Terraform Validate
-      - name: Terraform Validate
         run: terraform validate
 
       # Step 7: Terraform Plan (on PRs)
