@@ -25,3 +25,8 @@ variable "container_port" {
   type        = number
   default     = 3000
 }
+variable "image_uri" {
+  description = "Full image URI for ECS task"
+  type        = string
+}
+
