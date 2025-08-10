@@ -86,6 +86,7 @@ git push origin main
 🛠 Technologies Used
 <p align="center"> <img src="https://img.shields.io/badge/AWS-ECS%20Fargate-orange?style=for-the-badge&logo=amazon-aws" /> <img src="https://img.shields.io/badge/Terraform-IaC-purple?style=for-the-badge&logo=terraform" /> <img src="https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-blue?style=for-the-badge&logo=github-actions" /> <img src="https://img.shields.io/badge/Docker-Containerization-blue?style=for-the-badge&logo=docker" /> </p>
 
-📄 License
-This project is licensed under the MIT License.
+📄 License  
+This project is licensed under the [MIT License](LICENSE).
+
 
