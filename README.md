@@ -54,7 +54,7 @@ Workflow Diagram
 | `ECR_REPOSITORY`        | Name of your ECR repository    |
 
 ⚙️ How It Works
-<div align="center">
+<div align="left">
 <b>Step	Action</b>  <br>
 1️⃣	Developer pushes code into Source-Code-FIle-Folder/ <br>
 2️⃣	GitHub Actions detects changes <br>
