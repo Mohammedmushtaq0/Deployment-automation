@@ -2,34 +2,23 @@ name: Build & Push Docker Image to AWS ECR
 
 on:
   workflow_run:
-    workflows: ["Check Dockerfile After Merge"]
+    workflows: ["Check Dockerfile After Secrets Check"]
     types:
       - completed
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: latest
 
 jobs:
-  build-and-push:
+  docker-build-push:
     runs-on: ubuntu-latest
-
     steps:
-      # Step 1: Checkout the repo
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Verify Dockerfile exists
-      - name: Check for Dockerfile
-        run: |
-          if [ ! -f Dockerfile ]; then
-            echo "❌ No Dockerfile found in the root of the repository!"
-            exit 1
-          fi
-          echo "✅ Dockerfile found."
-
-      # Step 3: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,18 +26,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Step 4: Login to Amazon ECR
       - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        run: aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-      # Step 5: Build and tag the Docker image
       - name: Build Docker image
-        run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+        run: docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
 
-      # Step 6: Push the Docker image to ECR
-      - name: Push to Amazon ECR
-        run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+      - name: Tag Docker image
+        run: docker tag $ECR_REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Push Docker image
+        run: docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
