@@ -55,12 +55,12 @@ Workflow Diagram
 
 ⚙️ How It Works
 <div align="center">
-Step	Action
-1️⃣	Developer pushes code into Source-Code-FIle-Folder/
-2️⃣	GitHub Actions detects changes
-3️⃣	Docker image is built & pushed to Amazon ECR
-4️⃣	Terraform provisions ECS cluster, task, and service
-5️⃣	ECS Fargate runs the updated container
+<b>Step	Action</b>  <br>
+1️⃣	Developer pushes code into Source-Code-FIle-Folder/ <br>
+2️⃣	GitHub Actions detects changes <br>
+3️⃣	Docker image is built & pushed to Amazon ECR  <br>
+4️⃣	Terraform provisions ECS cluster, task, and service  <br>
+5️⃣	ECS Fargate runs the updated container  <br>
 
 </div>
 
