@@ -1,41 +1,22 @@
-name: Check Dockerfile After Merge
+name: Check Dockerfile After Secrets Check
 
 on:
   workflow_run:
-    workflows: ["Check Required Secrets and Environment Variables"]
+    workflows: ["Check Environment Secrets"]
     types:
       - completed
 
-
 jobs:
-  dockerfile-check:
+  check-dockerfile:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write  # Needed to create an issue
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get list of changed files in the last commit
-        id: diff
+      - name: Verify Dockerfile exists
         run: |
-          git fetch origin main --depth=2
-          echo "files=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | grep -i dockerfile || true)" >> $GITHUB_OUTPUT
-
-      - name: Check if Dockerfile exists anywhere in repo
-        id: global_check
-        run: |
-          if find . -type f -iname 'Dockerfile' | grep -q .; then
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
+          if [ ! -f Dockerfile ]; then
+            echo "❌ No Dockerfile found!"
+            exit 1
           fi
-
-      - name: Create Issue if no Dockerfile was found
-        if: steps.diff.outputs.files == '' && steps.global_check.outputs.found == 'false'
-        uses: peter-evans/create-issue-from-file@v5
-        with:
-          title: Missing Dockerfile after merge to main
-          content-file: .github/ISSUE_TEMPLATE/missing-dockerfile.md
-          labels: missing-dockerfile
+          echo "✅ Dockerfile found."
