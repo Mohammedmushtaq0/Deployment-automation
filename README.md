@@ -70,7 +70,7 @@ bash
 Copy
 Edit
 # 1. Clone the repository
-git clone https://github.com/<your-username>/Deployment-automation.git
+git clone https://github.com/Mohammedmushtaq0/Deployment-automation.git
 cd Deployment-automation
 
 # 2. Add your source code
