@@ -2,7 +2,7 @@ name: Check Dockerfile After Merge
 
 on:
   workflow_run:
-    workflows: ["Check Dockerfile After Merge"]
+    workflows: ["Check Required Secrets and Environment Variables"]
     types:
       - completed
 
