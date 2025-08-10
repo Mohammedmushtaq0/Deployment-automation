@@ -64,24 +64,24 @@ Workflow Diagram
 
 </div>
 
- Quick Start
+ Quick Start <br>
  
-bash
-Copy
-Edit
+bash<br>
+Copy<br>
+Edit<br>
 # 1. Clone the repository
-git clone https://github.com/Mohammedmushtaq0/Deployment-automation.git
+git clone https://github.com/Mohammedmushtaq0/Deployment-automation.git  <br>
 cd Deployment-automation
 
 # 2. Add your source code
 # Place your files & Dockerfile in:
 Source-Code-FIle-Folder/
 
-# 3. Commit & Push
-git add .
-git commit -m "Add my app source code"
-git push origin main
-📌 Watch the Actions tab to see the automation in progress.
+# 3. Commit & Push <br>
+git add .<br>
+git commit -m "Add my app source code" <br>
+git push origin main<br>
+📌 Watch the Actions tab to see the automation in progress.<br>
 
 🛠 Technologies Used
 <p align="center"> <img src="https://img.shields.io/badge/AWS-ECS%20Fargate-orange?style=for-the-badge&logo=amazon-aws" /> <img src="https://img.shields.io/badge/Terraform-IaC-purple?style=for-the-badge&logo=terraform" /> <img src="https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-blue?style=for-the-badge&logo=github-actions" /> <img src="https://img.shields.io/badge/Docker-Containerization-blue?style=for-the-badge&logo=docker" /> </p>
