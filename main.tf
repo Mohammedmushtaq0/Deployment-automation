@@ -1,156 +1,22 @@
-#################################
-# Provider & Variables
-#################################
-provider "aws" {
-  access_key = var.AWS_ACCESS_KEY_ID
-  secret_key = var.AWS_SECRET_ACCESS_KEY
-  region     = var.AWS_REGION
+# ECS Cluster
+resource "aws_ecs_cluster" "app_cluster" {
+  name = "${var.app_name}-cluster"
 }
 
-#################################
-# IAM - Admin User
-#################################
-resource "aws_iam_user" "admin_user" {
-  name = "admin-user"
-}
-
-resource "aws_iam_user_login_profile" "admin_user_console" {
-  user                      = aws_iam_user.admin_user.name
-  password                  = "YourCustomPassword123!"
-  password_reset_required   = false
-}
-
-output "admin_user_console_login" {
-  description = "AWS Console login details for admin-user"
-  value = {
-    login_name = aws_iam_user.admin_user.name
-    password   = aws_iam_user_login_profile.admin_user_console.password
-    login_link = "https://console.aws.amazon.com/"
-    note       = "Use your AWS account ID or alias with the login name."
-  }
-}
-
-resource "aws_iam_policy" "admin_user_policy" {
-  name        = "AdminUserPolicy"
-  description = "Allows creating users, attaching policies, and managing ECR/ECS."
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "iam:CreateUser",
-          "iam:DeleteUser",
-          "iam:AttachUserPolicy",
-          "iam:DetachUserPolicy",
-          "iam:List*",
-          "iam:Get*",
-          "ecr:*",
-          "ecs:*"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_user_policy_attachment" "admin_user_policy_attach" {
-  user       = aws_iam_user.admin_user.name
-  policy_arn = aws_iam_policy.admin_user_policy.arn
-}
-
-#################################
-# IAM - ECR & ECS User
-#################################
-resource "aws_iam_user" "ECR_ECS_user" {
-  name = "ECR_ECS_user"
-}
-
-resource "aws_iam_policy" "ECR_ECS_user_policy" {
-  name        = "ECR_ECS_user_policy"
-  description = "Full access to ECR and ECS for ECR_ECS_user."
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "ecr:*",
-          "ecs:*"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_user_policy_attachment" "ECR_ECS_user_policy_attach" {
-  user       = aws_iam_user.ECR_ECS_user.name
-  policy_arn = aws_iam_policy.ECR_ECS_user_policy.arn
-}
-
-#################################
-# ECR Repository
-#################################
-resource "aws_ecr_repository" "app_repo" {
-  name                 = var.app_name
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-#################################
-# CloudWatch Logs for ECS
-#################################
+# CloudWatch log group
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/ecs/${var.app_name}"
   retention_in_days = 7
 }
 
-#################################
-# ECS Cluster
-#################################
-resource "aws_ecs_cluster" "app_cluster" {
-  name = "${var.app_name}-cluster"
-}
-
-#################################
-# ECS Task Execution Role
-#################################
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.app_name}-ecs-task-exec-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action    = "sts:AssumeRole"
-        Effect    = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-#################################
 # ECS Task Definition
-#################################
 resource "aws_ecs_task_definition" "app_task" {
   family                   = "${var.app_name}-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
+  execution_role_arn       = var.ecs_task_execution_role_arn
 
   container_definitions = jsonencode([
     {
@@ -176,27 +42,26 @@ resource "aws_ecs_task_definition" "app_task" {
   ])
 }
 
-#################################
-# Networking (Default VPC)
-#################################
-data "aws_vpc" "default" {
-  default = true
-}
+# ECS Service
+resource "aws_ecs_service" "app_service" {
+  name            = "${var.app_name}-service"
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.app_task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
 
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
+  network_configuration {
+    subnets         = var.subnet_ids
+    security_groups = [aws_security_group.app_sg.id]
+    assign_public_ip = true
   }
 }
 
-#################################
-# ECS Service
-#################################
-resource "aws_security_group" "ecs_sg" {
+# Security Group
+resource "aws_security_group" "app_sg" {
   name        = "${var.app_name}-sg"
-  description = "Allow HTTP access to container"
-  vpc_id      = data.aws_vpc.default.id
+  description = "Allow inbound traffic"
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = var.container_port
@@ -213,27 +78,52 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-resource "aws_ecs_service" "app_service" {
-  name            = "${var.app_name}-service"
-  cluster         = aws_ecs_cluster.app_cluster.id
-  task_definition = aws_ecs_task_definition.app_task.arn
-  launch_type     = "FARGATE"
-  desired_count   = 1
+# --- App Autoscaling ---
+resource "aws_appautoscaling_target" "ecs_service" {
+  max_capacity       = 10
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.app_cluster.name}/${aws_ecs_service.app_service.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
 
-  network_configuration {
-    subnets         = data.aws_subnets.default.ids
-    assign_public_ip = true
-    security_groups = [aws_security_group.ecs_sg.id]
+# CPU-based scaling policy (scale out)
+resource "aws_appautoscaling_policy" "cpu_scale_out" {
+  name               = "${var.app_name}-cpu-scale-out"
+  service_namespace  = "ecs"
+  resource_id        = aws_appautoscaling_target.ecs_service.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_service.scalable_dimension
+  policy_type        = "TargetTrackingScaling"
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = 70.0
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    scale_out_cooldown = 60
+    scale_in_cooldown  = 60
   }
 }
 
-#################################
-# Outputs
-#################################
-output "ecr_repository_url" {
-  value = aws_ecr_repository.app_repo.repository_url
+# CPU-based scaling policy (scale in)
+resource "aws_appautoscaling_policy" "cpu_scale_in" {
+  name               = "${var.app_name}-cpu-scale-in"
+  service_namespace  = "ecs"
+  resource_id        = aws_appautoscaling_target.ecs_service.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs_service.scalable_dimension
+  policy_type        = "TargetTrackingScaling"
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = 30.0
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    scale_out_cooldown = 60
+    scale_in_cooldown  = 60
+  }
 }
 
+# Outputs
 output "ecs_cluster_name" {
   value = aws_ecs_cluster.app_cluster.name
 }
@@ -241,4 +131,3 @@ output "ecs_cluster_name" {
 output "ecs_service_name" {
   value = aws_ecs_service.app_service.name
 }
-
