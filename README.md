@@ -89,4 +89,3 @@ git push origin main
 📄 License
 This project is licensed under the MIT License.
 
-<h3 align="center">💡 Pro Tip:</h3> <p align="center"> If you replace the diagram in <code>docs/deployment-diagram.png</code> with your own, it will auto-update in the README. </p> ```
