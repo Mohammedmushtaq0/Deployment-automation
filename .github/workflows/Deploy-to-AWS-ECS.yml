@@ -1,9 +1,10 @@
 name: CI/CD to ECS Fargate with Terraform
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Build & Push Docker Image to AWS ECR"]
+    types:
+      - completed
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
