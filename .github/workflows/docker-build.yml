@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "Source-Code-FIle-Folder/**"
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -13,12 +15,23 @@ env:
 
 jobs:
   docker-build-and-push:
+    name: Build & Push Docker Image to ECR
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Verify Dockerfile exists inside folder
+      - name: Check for Dockerfile in folder
+        run: |
+          if [ ! -f Source-Code-FIle-Folder/Dockerfile ]; then
+            echo "❌ No Dockerfile found in Source-Code-FIle-Folder!"
+            exit 1
+          fi
+
+      # Step 3: Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -26,20 +39,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Ensure ECR Repository Exists
-        run: |
-          aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
-          aws ecr create-repository --repository-name $ECR_REPOSITORY
-
+      # Step 4: Login to Amazon ECR
       - name: Login to Amazon ECR
         run: aws ecr get-login-password --region $AWS_REGION \
           | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
+      # Step 5: Build Docker image from folder
       - name: Build Docker image
-        run: docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+        run: docker build -t $ECR_REPOSITORY:$IMAGE_TAG ./Source-Code-FIle-Folder
 
+      # Step 6: Tag Docker image
       - name: Tag Docker image
         run: docker tag $ECR_REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Step 7: Push Docker image to ECR
       - name: Push Docker image
         run: docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
