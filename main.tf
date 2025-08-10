@@ -1,22 +1,20 @@
+variable "app_name" {}
+variable "image_uri" {}
+variable "container_port" {}
+
 # ECS Cluster
-resource "aws_ecs_cluster" "app_cluster" {
+resource "aws_ecs_cluster" "this" {
   name = "${var.app_name}-cluster"
 }
 
-# CloudWatch log group
-resource "aws_cloudwatch_log_group" "ecs_log_group" {
-  name              = "/ecs/${var.app_name}"
-  retention_in_days = 7
-}
-
-# ECS Task Definition
-resource "aws_ecs_task_definition" "app_task" {
+# Task Definition
+resource "aws_ecs_task_definition" "this" {
   family                   = "${var.app_name}-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = var.task_cpu
-  memory                   = var.task_memory
-  execution_role_arn       = var.ecs_task_execution_role_arn
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
@@ -30,104 +28,58 @@ resource "aws_ecs_task_definition" "app_task" {
           protocol      = "tcp"
         }
       ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
-          awslogs-region        = var.AWS_REGION
-          awslogs-stream-prefix = var.app_name
-        }
-      }
     }
   ])
 }
 
 # ECS Service
-resource "aws_ecs_service" "app_service" {
+resource "aws_ecs_service" "this" {
   name            = "${var.app_name}-service"
-  cluster         = aws_ecs_cluster.app_cluster.id
-  task_definition = aws_ecs_task_definition.app_task.arn
-  desired_count   = 1
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.this.arn
   launch_type     = "FARGATE"
+  desired_count   = 1
 
   network_configuration {
-    subnets         = var.subnet_ids
-    security_groups = [aws_security_group.app_sg.id]
+    subnets         = var.subnets
+    security_groups = var.security_groups
     assign_public_ip = true
   }
-}
 
-# Security Group
-resource "aws_security_group" "app_sg" {
-  name        = "${var.app_name}-sg"
-  description = "Allow inbound traffic"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    from_port   = var.container_port
-    to_port     = var.container_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  load_balancer {
+    target_group_arn = var.target_group_arn
+    container_name   = var.app_name
+    container_port   = var.container_port
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  depends_on = [aws_ecs_task_definition.this]
 }
 
-# --- App Autoscaling ---
+# Autoscaling Target
 resource "aws_appautoscaling_target" "ecs_service" {
   max_capacity       = 10
   min_capacity       = 1
-  resource_id        = "service/${aws_ecs_cluster.app_cluster.name}/${aws_ecs_service.app_service.name}"
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.this.name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
+  role_arn           = aws_iam_role.ecs_autoscale_role.arn
 }
 
-# CPU-based scaling policy (scale out)
-resource "aws_appautoscaling_policy" "cpu_scale_out" {
-  name               = "${var.app_name}-cpu-scale-out"
-  service_namespace  = "ecs"
+# CPU Scaling Policy
+resource "aws_appautoscaling_policy" "cpu_scale_up" {
+  name               = "${var.app_name}-cpu-scale-up"
+  policy_type        = "TargetTrackingScaling"
   resource_id        = aws_appautoscaling_target.ecs_service.resource_id
   scalable_dimension = aws_appautoscaling_target.ecs_service.scalable_dimension
-  policy_type        = "TargetTrackingScaling"
+  service_namespace  = aws_appautoscaling_target.ecs_service.service_namespace
 
   target_tracking_scaling_policy_configuration {
-    target_value       = 70.0
+    target_value       = 50.0
+    scale_in_cooldown  = 60
+    scale_out_cooldown = 60
+
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
-    scale_out_cooldown = 60
-    scale_in_cooldown  = 60
   }
-}
-
-# CPU-based scaling policy (scale in)
-resource "aws_appautoscaling_policy" "cpu_scale_in" {
-  name               = "${var.app_name}-cpu-scale-in"
-  service_namespace  = "ecs"
-  resource_id        = aws_appautoscaling_target.ecs_service.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_service.scalable_dimension
-  policy_type        = "TargetTrackingScaling"
-
-  target_tracking_scaling_policy_configuration {
-    target_value       = 30.0
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-    scale_out_cooldown = 60
-    scale_in_cooldown  = 60
-  }
-}
-
-# Outputs
-output "ecs_cluster_name" {
-  value = aws_ecs_cluster.app_cluster.name
-}
-
-output "ecs_service_name" {
-  value = aws_ecs_service.app_service.name
 }
