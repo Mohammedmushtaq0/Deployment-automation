@@ -1,32 +1,40 @@
-variable "AWS_ACCESS_KEY_ID" {
-  description = "AWS access key ID"
-  type        = string
-}
-
-variable "AWS_SECRET_ACCESS_KEY" {
-  description = "AWS secret access key"
-  type        = string
-  sensitive   = true
-}
-
-variable "AWS_REGION" {
-  description = "AWS region"
-  type        = string
-}
-
 variable "app_name" {
-  description = "Application name used for ECR/ECS resources"
+  description = "Name of the ECS application"
   type        = string
-  default     = "my-app"
+}
+
+variable "image_uri" {
+  description = "Full URI of the Docker image in ECR"
+  type        = string
 }
 
 variable "container_port" {
-  description = "Port your container listens on"
+  description = "Port on which the container listens"
   type        = number
-  default     = 3000
+  default     = 80
 }
-variable "image_uri" {
-  description = "Full image URI for ECS task"
+
+variable "subnets" {
+  description = "List of subnet IDs for ECS tasks"
+  type        = list(string)
+}
+
+variable "security_groups" {
+  description = "List of security group IDs for ECS tasks"
+  type        = list(string)
+}
+
+variable "target_group_arn" {
+  description = "ARN of the ALB Target Group to associate with ECS service"
   type        = string
 }
 
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID"
+  type        = string
+}
