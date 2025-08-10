@@ -42,7 +42,7 @@ Deployment-automation/
     ├── check-dockerfile.yml
 ```
 Workflow Diagram
-<p align="center"> <img src="docs/Untitled-2025-07-17-1827.excalidraw.png" alt="Deployment Workflow" width="700"/> </p>
+<p align="center"> <img src="docs/docs/VisualWorkFlow.excalidraw.png" alt="Deployment Workflow" width="700"/> </p>
 
  Required GitHub Secrets
 | Secret Name             | Description                    |
